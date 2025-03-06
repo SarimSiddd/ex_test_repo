@@ -10,6 +10,8 @@ import (
 	"payment-gateway/internal/config"
 	"payment-gateway/internal/repository/postgres"
 	"payment-gateway/internal/services"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -52,7 +54,7 @@ func main() {
 
 }
 
-func initializeRepositories(database *sql.DB, gatewayConfig *config.GatewayConfig) *api.Router {
+func initializeRepositories(database *sql.DB, gatewayConfig *config.GatewayConfig) *mux.Router {
 
 	transactionRepo := postgres.NewTransactionRepo(database)
 	gatewayRepo := postgres.NewGatewayRepo(database)

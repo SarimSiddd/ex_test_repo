@@ -1,18 +1,23 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"payment-gateway/internal/services"
 )
 
-type CallbackHandler struct {
-	callbackProcessor *services.CallbackProcessor
+// CallbackProcessorInterface defines the contract for callback processing
+type CallbackProcessorInterface interface {
+	ProcessCallback(ctx context.Context, gatewayName string, callbackData []byte) error
 }
 
-func NewCallbackHandler(callbackProcessor *services.CallbackProcessor) *CallbackHandler {
+type CallbackHandler struct {
+	callbackProcessor CallbackProcessorInterface
+}
+
+func NewCallbackHandler(callbackProcessor CallbackProcessorInterface) *CallbackHandler {
 	return &CallbackHandler{
 		callbackProcessor: callbackProcessor,
 	}

@@ -1,17 +1,21 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"payment-gateway/internal/models"
-	"payment-gateway/internal/services"
 )
 
+type TransactionProcessorInterface interface {
+	ProcessDeposit(ctx context.Context, userID int, amount float64, currency string) (*models.Transaction, error)
+	ProcessWithdrawal(ctx context.Context, userID int, amount float64, currency string) (*models.Transaction, error)
+}
 type TransactionHandler struct {
-	transactionProcessor *services.TransactionProcessor
+	transactionProcessor TransactionProcessorInterface
 }
 
-func NewTransactionHandler(transactionProcessor *services.TransactionProcessor) *TransactionHandler {
+func NewTransactionHandler(transactionProcessor TransactionProcessorInterface) *TransactionHandler {
 	return &TransactionHandler{
 		transactionProcessor: transactionProcessor,
 	}
