@@ -19,11 +19,13 @@ func NewGatewaySelector(
 	gatewayConfig *config.GatewayConfig,
 	countryRepo repository.Country,
 	gatewayRepo repository.Gateway,
+	userRepo repository.User,
 ) *GatewaySelector {
 	return &GatewaySelector{
 		gatewayConfig: gatewayConfig,
 		countryRepo:   countryRepo,
 		gatewayRepo:   gatewayRepo,
+		userRepo:      userRepo,
 	}
 }
 

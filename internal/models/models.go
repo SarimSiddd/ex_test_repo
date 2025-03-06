@@ -41,6 +41,9 @@ type Country struct {
 
 // a standard request structure for the transactions
 type TransactionRequest struct {
+	Amount   float64 `json:"amount"`
+	UserID   int     `json:"user_id"`
+	Currency string  `json:"currency"`
 }
 
 // a standard response structure for the APIs

@@ -1,8 +1,21 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
+	"payment-gateway/internal/models"
+	"payment-gateway/internal/services"
 )
+
+type TransactionHandler struct {
+	transactionProcessor *services.TransactionProcessor
+}
+
+func NewTransactionHandler(transactionProcessor *services.TransactionProcessor) *TransactionHandler {
+	return &TransactionHandler{
+		transactionProcessor: transactionProcessor,
+	}
+}
 
 // DepositHandler handles deposit requests (feel free to update how user is passed to the request)
 // Sample Request (POST /deposit):
@@ -12,8 +25,27 @@ import (
 //	    "user_id": 1,
 //	    "currency": "EUR"
 //	}
-func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	// deposit request logic
+func (h *TransactionHandler) DepositHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.TransactionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	transaction, err := h.transactionProcessor.ProcessDeposit(r.Context(), req.UserID, req.Amount, req.Currency)
+	if err != nil {
+		http.Error(w, "Failed to process deposit: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.APIResponse{
+		StatusCode: http.StatusOK,
+		Message:    "Deposit initiated successfully",
+		Data:       transaction,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // WithdrawalHandler handles withdrawal requests (feel free to update how user is passed to the request)
@@ -24,6 +56,25 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 //	    "user_id": 1,
 //	    "currency": "EUR"
 //	}
-func WithdrawalHandler(w http.ResponseWriter, r *http.Request) {
-	// withdrawal request logic
+func (h *TransactionHandler) WithdrawalHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.TransactionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	transaction, err := h.transactionProcessor.ProcessWithdrawal(r.Context(), req.UserID, req.Amount, req.Currency)
+	if err != nil {
+		http.Error(w, "Failed to process withdrawal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.APIResponse{
+		StatusCode: http.StatusOK,
+		Message:    "Withdrawal initiated successfully",
+		Data:       transaction,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

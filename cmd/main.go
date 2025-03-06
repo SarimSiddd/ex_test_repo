@@ -1,11 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 	"payment-gateway/db"
 	"payment-gateway/internal/api"
+	"payment-gateway/internal/config"
+	"payment-gateway/internal/repository/postgres"
+	"payment-gateway/internal/services"
 )
 
 func main() {
@@ -20,9 +24,25 @@ func main() {
 	dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
 
 	db.InitializeDB(dbURL)
+	database, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to open database connection: %v", err)
+	}
+	defer database.Close()
 
 	// Set up the HTTP server and routes
-	router := api.SetupRouter()
+	gatewayConfigPath := os.Getenv("GATEWAY_CONFIG_PATH")
+	if gatewayConfigPath == "" {
+		gatewayConfigPath = "internal/config/gateway_config.yaml"
+	}
+
+	gatewayConfig, err := config.LoadGatewayConfig(gatewayConfigPath)
+	if err != nil {
+		log.Fatalf("Failed to load gateway configuration: %v", err)
+	}
+
+	// Initialize repositories
+	router := initializeRepositories(database, gatewayConfig)
 
 	// Start the server on port 8080
 	log.Println("Starting server on port 8080...")
@@ -30,4 +50,35 @@ func main() {
 		log.Fatalf("Could not start server: %s\n", err)
 	}
 
+}
+
+func initializeRepositories(database *sql.DB, gatewayConfig *config.GatewayConfig) *api.Router {
+
+	transactionRepo := postgres.NewTransactionRepo(database)
+	gatewayRepo := postgres.NewGatewayRepo(database)
+	countryRepo := postgres.NewCountryRepo(database)
+	userRepo := postgres.NewUserRepo(database)
+
+	gatewaySelector := services.NewGatewaySelector(gatewayConfig, countryRepo, gatewayRepo, userRepo)
+
+	transactionProcessor := services.NewTransactionProcessor(
+		gatewayConfig,
+		gatewaySelector,
+		transactionRepo,
+	)
+
+	transactionHandler := api.NewTransactionHandler(
+		transactionProcessor,
+	)
+
+	callbackProcessor := services.NewCallbackProcessor(
+		transactionRepo,
+		gatewayRepo,
+	)
+
+	callbackHandler := api.NewCallbackHandler(callbackProcessor)
+
+	router := api.SetupRouter(transactionHandler, callbackHandler)
+
+	return router
 }
