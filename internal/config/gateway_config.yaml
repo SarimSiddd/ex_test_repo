@@ -1,0 +1,88 @@
+gateways:
+  paypal:
+    base_url: "https://api.paypal.com"
+    endpoints:
+      deposit: "/v1/payments/payment"
+      withdrawal: "/v1/payments/payouts"
+    callback_url: "/api/callbacks/paypal"
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    timeout: 15  # Seconds
+    retry:  
+      max_attempts: 3
+      backoff_factor: 2  # Exponential backoff factor
+
+  stripe:
+    base_url: "https://api.stripe.com"
+    endpoints:
+      deposit: "/v1/charges"
+      withdrawal: "/v1/payouts"
+    callback_url: "/api/callbacks/stripe"
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    timeout: 10
+    retry:
+      max_attempts: 2
+      backoff_factor: 1.5
+
+  adyen:
+    base_url: "https://checkout-test.adyen.com"
+    endpoints:
+      deposit: "/v68/payments"
+      withdrawal: "/v68/payouts"
+    callback_url: "/api/callbacks/adyen"
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    timeout: 12
+    retry:
+      max_attempts: 3
+      backoff_factor: 2
+
+  soap_gateway:
+    base_url: "https://soap-gateway-example.com"
+    endpoints:
+      deposit: "/api/soap/deposit"
+      withdrawal: "/api/soap/withdrawal"
+    callback_url: "/api/callbacks/soap-gateway"
+    headers:
+      Content-Type: "text/xml"
+      SOAPAction: "process"
+    timeout: 20
+    retry:
+      max_attempts: 2
+      backoff_factor: 2
+
+# Country-specific gateway priorities
+countries:
+  US:  # United States
+    gateways:
+      paypal: 10
+      stripe: 8
+      adyen: 5
+
+  GB:  # United Kingdom
+    gateways:
+      stripe: 10
+      adyen: 8
+      paypal: 5
+
+  DE:  # Germany
+    gateways:
+      adyen: 10
+      paypal: 8
+      stripe: 5
+      soap_gateway: 3
+
+  JP:  # Japan
+    gateways:
+      stripe: 10
+      paypal: 7
+
+  AE:  # United Arab Emirates
+    gateways:
+      adyen: 10
+      stripe: 7
+      soap_gateway: 5
