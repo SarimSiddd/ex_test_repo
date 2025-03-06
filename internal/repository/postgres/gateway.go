@@ -41,3 +41,27 @@ func (r *GatewayRepo) FindByID(ctx context.Context, id int) (*models.Gateway, er
 
 	return &gateway, nil
 }
+
+func (r *GatewayRepo) FindByName(ctx context.Context, name string) (*models.Gateway, error) {
+	query := `SELECT id, name, dataformatsupported, created_at, updated_at 
+              FROM gateways WHERE name = $1`
+
+	var gateway models.Gateway
+	err := r.db.QueryRowContext(ctx, query, name).Scan(
+		&gateway.ID,
+		&gateway.Name,
+		&gateway.DataFormatSupported,
+		&gateway.CreatedAt,
+		&gateway.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("country with Name %s not found", name)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error querying country: %w", err)
+	}
+
+	return &gateway, nil
+}
