@@ -1,109 +1,292 @@
-# Payment Gateway Integration Assessment
+# Payment Gateway Integration System
 
-This assessment evaluates your skills in implementing a robust and scalable payment gateway integration system within a trading platform. The system must accommodate multiple third-party payment gateways based on country and region, with support for configuring gateway priority, implementing failover mechanisms, and ensuring system resilience.
+## Project Overview
 
-You will work with a skeleton codebase that includes prebuilt functionality, which will assist you in the implementation. You are required to implement two key endpoints and also handle the callback from gateways to update the transaction status asynchronously. Your code should support different formats depending on the gateway-supported format (your code should support at least JSON and SOAP).
+The Payment Gateway Integration System is a robust and scalable solution designed to facilitate payment processing through multiple third-party payment gateways. The system intelligently selects appropriate payment gateways based on user country and configured gateway priorities, with built-in support for failover mechanisms and resilience strategies.
 
-## Task Overview
+Key features include:
+- Support for multiple payment gateways (PayPal, Stripe, Adyen, and SOAP-based gateways)
+- Country-specific gateway prioritization
+- Multiple data format support (JSON and XML/SOAP)
+- Asynchronous transaction status updates via callbacks
+- Fault tolerance with circuit breakers and retry mechanisms
+- Secure handling of sensitive payment data
 
-You will implement the following endpoints:
+## Architecture
 
-- `/deposit`: For processing deposit transactions.
-- `/withdrawal`: For processing withdrawal transactions.
+The system follows a clean architecture approach with clear separation of concerns:
 
-In addition to implementing these endpoints, you will handle callback responses from gateways asynchronously to update the transaction status.
+```
+payment-gateway/
+├── cmd/                  # Application entry points
+├── db/                   # Database migrations and helpers
+├── internal/             # Internal packages
+│   ├── api/              # API handlers and routing
+│   ├── config/           # Configuration loading and structures
+│   ├── gateway/          # Gateway client implementations
+│   ├── kafka/            # Kafka integration for event publishing
+│   ├── models/           # Data models
+│   ├── repository/       # Data access layer
+│   │   └── postgres/     # PostgreSQL implementations
+│   └── services/         # Business logic
+└── docker-compose.yml    # Docker configuration
+```
 
-### Database
+## Key Components
 
-The database helpers can be found under `db/db_helpers.go`, and the migration/init file is under `db/init.sql`.
+### API Layer
+- **Handlers**: Process HTTP requests and responses for deposit, withdrawal, and callbacks
+- **Router**: Defines API routes and middleware
 
-**Hint:** The project has Docker configured, which includes PostgreSQL, Kafka, and Redis, making it easier for you to get started. However, it's not mandatory to use these services in your solution. The decision to use them depends on the architecture you design for this task.
+### Service Layer
+- **TransactionProcessor**: Handles the core logic for processing deposits and withdrawals
+- **CallbackProcessor**: Processes gateway callbacks to update transaction status
+- **GatewaySelector**: Selects the appropriate gateway based on user's country and configured priorities
+- **DataFormatService**: Handles encoding/decoding of different data formats (JSON, XML)
+- **FaultTolerance**: Provides circuit breaker and retry mechanisms
 
-### Helpers
+### Repository Layer
+- **Transaction**: CRUD operations for transactions
+- **Gateway**: CRUD operations for payment gateways
+- **Country**: CRUD operations for countries
+- **User**: CRUD operations for users
 
-- **`api/router.go`**: The `/deposit` and `/withdrawal` endpoints are pre-defined using `gorilla/mux`.
-- **`db_helpers.go`**: This file contains helper functions for interacting with the database, such as CRUD operations.
-- **`db/init.sql`**: This is the SQL file used for the database migrations. It defines the schema for the `gateways`, `countries`, `transactions`, and `users` tables.
-- **`kafka/publisher.go`**: This file contains helper functions for publishing messages to Kafka.
-- **`services/data_format_services.go`**: This file contains functions to decode the request based on the data format (content type). You are required to create a similar function for encoding the response.
-- **`services/fault_tolerance.go`**: This file contains helper functions for implementing fault tolerance such as circuit breakers and retry mechanisms.
-- **`services/security.go`**: This file contains helper functions for masking and unmasking data using base64 encoding (Feel free to change the algorithm for better security).
+### Gateway Layer
+- **HTTPClient**: Sends transaction requests to payment gateways
 
-### Requirements
+### Configuration
+- **GatewayConfig**: Loads and provides access to gateway configuration
 
-1. **Endpoints Implementation:**
-    - Implement the `/deposit` and `/withdrawal` endpoints to process transactions.
-    - Each endpoint should accept a JSON/SOAP payload with details such as `amount`, `user_id`, `gateway_id`, `country_id`, and `currency`.
-    
-2. **Callback Handling:**
-    - Implement the logic to handle the callback from third-party gateways to update the transaction status asynchronously.
-    - The callback will include information like transaction status and should be used to update the corresponding transaction in the database.
-    
-3. **Transaction Status:**
-    - Each transaction must include a status field (e.g., "pending", "completed", "failed") which should be updated when the callback is received.
-    
-4. **Data Formats:**
-    - Your solution should support at least two data formats: JSON and SOAP. You should decode the request in the appropriate format (as defined in `services/data_format_services.go`), and you should also create a function for encoding the response.
-    
-5. **Unit Tests:**
-    - Write unit tests to cover the business logic, especially for the endpoints, transaction processing, and callback handling.
-    - Test for edge cases and failure scenarios, such as handling invalid input, network issues, and unexpected failures from the gateway.
+## API Endpoints
 
-6. **Fault Tolerance:**
-    - Implement fault tolerance for your solution using the retry mechanisms and circuit breakers found in `services/fault_tolerance.go`.
+### `/deposit`
+- **Method**: POST
+- **Description**: Process deposit transactions
+- **Request Format**:
+  ```json
+  {
+    "amount": 100.00,
+    "user_id": 1,
+    "currency": "EUR"
+  }
+  ```
+- **Response Format**:
+  ```json
+  {
+    "status_code": 200,
+    "message": "Deposit initiated successfully",
+    "data": {
+      "id": 1,
+      "amount": 100.00,
+      "type": "deposit",
+      "status": "PROCESSING",
+      "gateway_id": 1,
+      "user_id": 1,
+      "created_at": "2025-03-07T15:42:00Z"
+    }
+  }
+  ```
 
-7. **Security:**
-    - Use the provided helper functions in `services/security.go` to mask and unmask sensitive data before publishing to Kafka or logging it.
-    
-### How to Get Started
+### `/withdrawal`
+- **Method**: POST
+- **Description**: Process withdrawal transactions
+- **Request Format**:
+  ```json
+  {
+    "amount": 50.00,
+    "user_id": 1,
+    "currency": "EUR"
+  }
+  ```
+- **Response Format**:
+  ```json
+  {
+    "status_code": 200,
+    "message": "Withdrawal initiated successfully",
+    "data": {
+      "id": 2,
+      "amount": 50.00,
+      "type": "withdrawal",
+      "status": "PROCESSING",
+      "gateway_id": 1,
+      "user_id": 1,
+      "created_at": "2025-03-07T15:42:00Z"
+    }
+  }
+  ```
 
-1. **Clone the Repository:**
-    Clone the repository to your local machine:
+### `/api/callbacks/{gateway}`
+- **Method**: POST
+- **Description**: Endpoint for payment gateways to send transaction status updates
+- **Path Parameter**: `gateway` - The name of the gateway sending the callback
+- **Request Format** (JSON example):
+  ```json
+  {
+    "transaction_id": 1,
+    "status": "COMPLETED"
+  }
+  ```
+- **Request Format** (XML example):
+  ```xml
+  <callback>
+    <transaction_id>1</transaction_id>
+    <status>COMPLETED</status>
+  </callback>
+  ```
 
-    ```bash
-    git clone [<repository_url>](https://gitlab.com/exinity-hiring/payment-gateways.git)
-    cd <project_directory>
-    ```
+## Data Flow
 
-2. **Setup Docker:**
-    Docker is configured to run PostgreSQL, Kafka, and Redis. Use the following command to start all the services:
+1. **Transaction Initiation**:
+   - User submits a deposit or withdrawal request
+   - System selects appropriate gateway based on user's country
+   - Transaction is created with "PENDING" status
+   - Request is sent to the selected payment gateway
+   - Transaction status is updated to "PROCESSING"
+   - Event is published to Kafka for tracking
 
-    ```bash
-    docker-compose up -d
-    ```
+2. **Transaction Completion**:
+   - Gateway processes the transaction and sends a callback
+   - Callback processor updates the transaction status
+   - Event is published to Kafka with the updated status
 
-    This will start:
-    - PostgreSQL on port `5432`
-    - Kafka on ports `9092` and `9093`
-    - Redis on port `6379`
-    - Application on port `8080`
+## Fault Tolerance and Resilience
 
-3. **Database Migration:**
-    The migration file `db/init.sql` is already provided. Once the Docker services are up and running, the database will be initialized automatically, and the tables will be created.
+The system implements several fault tolerance mechanisms:
 
+1. **Circuit Breaker**:
+   - Prevents cascading failures when a service is down
+   - Implemented for Kafka publishing operations
+   - Configured with a 5-second interval and 3-second timeout
 
-### Deliverables
+2. **Retry Mechanism**:
+   - Automatically retries failed operations with exponential backoff
+   - Configurable max attempts per gateway
 
-- Implement the `/deposit` and `/withdrawal` endpoints.
-- Handle the callback from third-party gateways to update the transaction status.
-- Ensure that the solution supports multiple data formats (at least JSON and SOAP).
-- Implement fault tolerance and retry mechanisms where necessary.
-- Write unit tests to ensure the correctness and resilience of your solution.
-- Provide clear and concise documentation, including any architectural decisions or assumptions made and API documentation.
+3. **Gateway Failover**:
+   - Country configuration includes multiple gateways with priority levels
+   - System can fall back to lower-priority gateways if needed
 
-### Important Files
+## Configuration
 
-- **`db/db_helpers.go`**: Helper functions for interacting with the database.
-- **`db/init.sql`**: SQL migration file to initialize the database.
-- **`api/router.go`**: Defines the API routes (`/deposit` and `/withdrawal`).
-- **`services/data_format_services.go`**: Functions for handling different data formats.
-- **`services/fault_tolerance.go`**: Functions for implementing fault tolerance, including retries and circuit breakers.
-- **`services/security.go`**: Helper functions for masking/unmasking sensitive data.
+### Gateway Configuration (YAML)
 
-### Time Limit
+The system uses a YAML configuration file to define gateway settings and country-specific priorities:
 
-You have **3 hours** to complete this task.
+```yaml
+gateways:
+  paypal:
+    base_url: "https://api.paypal.com"
+    endpoints:
+      deposit: "/v1/payments/payment"
+      withdrawal: "/v1/payments/payouts"
+    callback_url: "/api/callbacks/paypal"
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    timeout: 15  # Seconds
+    retry:  
+      max_attempts: 3
+      backoff_factor: 2  # Exponential backoff factor
 
----
+countries:
+  US:  # United States
+    gateways:
+      paypal: 10
+      stripe: 8
+      adyen: 5
+```
 
-Good luck and happy coding!
+## Database Schema
+
+The system uses PostgreSQL with the following tables:
+
+1. **gateways**:
+   - `id`: Serial primary key
+   - `name`: Gateway name (unique)
+   - `data_format_supported`: Supported data format
+   - `created_at`, `updated_at`: Timestamps
+
+2. **countries**:
+   - `id`: Serial primary key
+   - `name`: Country name (unique)
+   - `code`: 2-character country code (unique)
+   - `currency`: 3-character currency code
+   - `created_at`, `updated_at`: Timestamps
+
+3. **gateway_countries**:
+   - `gateway_id`: Foreign key to gateways
+   - `country_id`: Foreign key to countries
+   - Primary key: (gateway_id, country_id)
+
+4. **transactions**:
+   - `id`: Serial primary key
+   - `amount`: Transaction amount
+   - `type`: Transaction type (deposit/withdrawal)
+   - `status`: Transaction status
+   - `created_at`: Timestamp
+   - `gateway_id`: Foreign key to gateways
+   - `country_id`: Foreign key to countries
+   - `user_id`: Foreign key to users
+
+5. **users**:
+   - `id`: Serial primary key
+   - `username`: User's username (unique)
+   - `email`: User's email (unique)
+   - `password`: User's password (hashed)
+   - `country_id`: Foreign key to countries
+   - `created_at`, `updated_at`: Timestamps
+
+## Deployment
+
+The system is containerized using Docker and can be deployed using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+- PostgreSQL on port 5432
+- Kafka on ports 9092 and 9093
+- Redis on port 6379
+- Application on port 8080
+
+## Current Limitations
+
+The following features are not yet implemented:
+
+- Dynamic loading of gateway config file
+- Validate gateway existence in database from config file
+- Fallback based on gateway config
+- Security configuration based on gateway
+- Kafka as a processor when requests are received
+- Clients that act on Kafka's event notification
+- Using SQL queries directly instead of Database function
+
+## Future Improvements
+
+1. **Dynamic Configuration**:
+   - Implement dynamic loading of gateway configuration
+   - Add support for runtime configuration updates
+
+2. **Enhanced Failover**:
+   - Implement more sophisticated failover strategies
+   - Add support for gateway health checks
+
+3. **Security Enhancements**:
+   - Implement gateway-specific security configurations
+   - Add support for more secure encryption algorithms
+
+4. **Monitoring and Observability**:
+   - Add metrics collection
+   - Implement distributed tracing
+   - Create dashboards for system monitoring
+
+5. **Performance Optimization**:
+   - Implement caching for frequently accessed data
+   - Optimize database queries
+   - Add connection pooling
+
+6. **Additional Features**:
+   - Support for more payment gateways
+   - Implement webhook notifications
+   - Add support for recurring payments

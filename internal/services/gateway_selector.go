@@ -8,6 +8,7 @@ import (
 	"payment-gateway/internal/repository"
 )
 
+// GatewaySelector implements the GatewaySelectorProvider interface
 type GatewaySelector struct {
 	gatewayConfig *config.GatewayConfig
 	countryRepo   repository.Country

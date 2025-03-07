@@ -8,6 +8,7 @@ import (
 	"payment-gateway/db"
 	"payment-gateway/internal/api"
 	"payment-gateway/internal/config"
+	"payment-gateway/internal/gateway"
 	"payment-gateway/internal/repository/postgres"
 	"payment-gateway/internal/services"
 
@@ -63,10 +64,14 @@ func initializeRepositories(database *sql.DB, gatewayConfig *config.GatewayConfi
 
 	gatewaySelector := services.NewGatewaySelector(gatewayConfig, countryRepo, gatewayRepo, userRepo)
 
+	// Initialize the gateway client
+	gatewayClient := &gateway.HTTPClient{}
+
 	transactionProcessor := services.NewTransactionProcessor(
 		gatewayConfig,
 		gatewaySelector,
 		transactionRepo,
+		gatewayClient,
 	)
 
 	transactionHandler := api.NewTransactionHandler(

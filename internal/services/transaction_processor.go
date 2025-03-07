@@ -1,36 +1,52 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"payment-gateway/internal/config"
 	"payment-gateway/internal/kafka"
 	"payment-gateway/internal/models"
 	"payment-gateway/internal/repository"
 	"strconv"
-	"strings"
 	"time"
 )
 
+// Client defines the interface for gateway communication
+type Client interface {
+	SendTransaction(ctx context.Context, transactionType string, payload []byte, transactionID int, gatewayDetails config.GatewayDetails) error
+}
+
+// GatewayConfigProvider defines the interface for accessing gateway configuration
+type GatewayConfigProvider interface {
+	// GetGatewayDetails returns the gateway details for a given gateway name
+	GetGatewayDetails(gatewayName string) (config.GatewayDetails, bool)
+}
+
+// GatewaySelectorProvider defines the interface for selecting gateways
+type GatewaySelectorProvider interface {
+	// SelectGatewayForUser selects a gateway for a given user
+	SelectGatewayForUser(ctx context.Context, userID int) (*models.Gateway, error)
+}
+
 type TransactionProcessor struct {
-	gatewayConfig   *config.GatewayConfig
-	gatewaySelector *GatewaySelector
+	gatewayConfig   GatewayConfigProvider
+	gatewaySelector GatewaySelectorProvider
 	transactionRepo repository.Transaction
+	gatewayClient   Client
 }
 
 func NewTransactionProcessor(
-	gatewayConfig *config.GatewayConfig,
-	gatewaySelector *GatewaySelector,
+	gatewayConfig GatewayConfigProvider,
+	gatewaySelector GatewaySelectorProvider,
 	transactionRepo repository.Transaction,
+	gatewayClient Client,
 ) *TransactionProcessor {
 	return &TransactionProcessor{
 		gatewayConfig:   gatewayConfig,
 		gatewaySelector: gatewaySelector,
 		transactionRepo: transactionRepo,
+		gatewayClient:   gatewayClient,
 	}
 }
 
@@ -67,7 +83,7 @@ func (p *TransactionProcessor) processTransaction(
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	gatewayDetails, exists := p.gatewayConfig.Gateways[gateway.Name]
+	gatewayDetails, exists := p.gatewayConfig.GetGatewayDetails(gateway.Name)
 	if !exists {
 		return nil, fmt.Errorf("gateway %s not found in configuration", gateway.Name)
 	}
@@ -80,7 +96,7 @@ func (p *TransactionProcessor) processTransaction(
 	}
 
 	err = RetryOperation(func() error {
-		return p.sendToGateway(ctx, gatewayDetails, transactionType, payload, transaction.ID)
+		return p.gatewayClient.SendTransaction(ctx, transactionType, payload, transaction.ID, gatewayDetails)
 	}, gatewayDetails.Retry.MaxAttempts)
 
 	if err != nil {
@@ -124,63 +140,4 @@ func (p *TransactionProcessor) publishTransactionEvent(
 	}
 
 	return kafka.PublishTransaction(ctx, strconv.Itoa(transaction.ID), messageBytes, dataFormat)
-}
-
-// This can be moved somewhere else
-func (p *TransactionProcessor) sendToGateway(
-	ctx context.Context,
-	gatewayDetails config.GatewayDetails,
-	transactionType string,
-	payload []byte,
-	transactionID int,
-) error {
-	var endpoint string
-	if transactionType == "deposit" {
-		endpoint = gatewayDetails.Endpoints.Deposit
-	} else {
-		endpoint = gatewayDetails.Endpoints.Withdrawal
-	}
-
-	url := gatewayDetails.BaseURL + endpoint
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payload))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	for key, value := range gatewayDetails.Headers {
-		req.Header.Set(key, value)
-	}
-
-	req.Header.Set("X-Transaction-ID", strconv.Itoa(transactionID))
-
-	callbackURL := gatewayDetails.CallbackURL
-	if callbackURL != "" {
-		if !strings.HasPrefix(callbackURL, "http") {
-			baseURL := "https://api-domain.com" // Can read from config
-			callbackURL = baseURL + callbackURL
-		}
-		req.Header.Set("X-Callback-URL", callbackURL)
-	}
-
-	client := &http.Client{
-		Timeout: time.Duration(gatewayDetails.Timeout) * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("gateway returned non-success status: %d, body: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
 }

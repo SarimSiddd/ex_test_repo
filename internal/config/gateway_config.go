@@ -35,6 +35,12 @@ type GatewayConfig struct {
 	Countries map[string]CountryConfig  `yaml:"countries"`
 }
 
+// GetGatewayDetails returns the gateway details for a given gateway name
+func (c *GatewayConfig) GetGatewayDetails(gatewayName string) (GatewayDetails, bool) {
+	details, exists := c.Gateways[gatewayName]
+	return details, exists
+}
+
 type GatewayPriority struct {
 	Name     string
 	ID       int
