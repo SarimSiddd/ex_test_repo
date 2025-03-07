@@ -51,6 +51,8 @@ services:
       - zookeeper
       - postgres
       - redis
+    volumes:
+      - ./internal/config/gateway_config.yaml:/app/config/gateway_config.yaml
     environment:
       - DATABASE_URL=postgres://user:password@postgres:5432/payments?sslmode=disable
       - KAFKA_BROKER_URL=kafka-like:9092
@@ -59,6 +61,7 @@ services:
       - DB_NAME=payments
       - DB_HOST=postgres
       - DB_PORT=5432
+      - GATEWAY_CONFIG_PATH=/app/config/gateway_config.yaml
     command: ["/app/main"]
     networks:
       - kafka_network

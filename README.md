@@ -261,6 +261,7 @@ The following features are not yet implemented:
 - Kafka as a processor when requests are received
 - Clients that act on Kafka's event notification
 - Using SQL queries directly instead of Database function
+- Expose endpoints via Swagger URL
 
 ## Future Improvements
 
